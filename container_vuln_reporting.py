@@ -6,6 +6,7 @@ import logging
 import json
 
 MAX_RESULT_SET = 500_000
+MID_CLUSTER_MAP = {}
 
 class OutputRecord():
     def __init__(self, image_id, vuln_list, active_count):
@@ -33,8 +34,10 @@ class OutputRecord():
         
         self.total_fixes = self.critical_count + self.high_count + self.medium_count + self.low_count + self.info_count
 
+        self.cluster = MID_CLUSTER_MAP[image_id['mid']]
+
     def printCsvRow(self):
-       print(f'{self.image_id["repo"]},{self.image_id["tag"]},{self.critical_count},{self.high_count},{self.medium_count},{self.low_count},{self.info_count},{self.active_count},{self.image_id["imageId"]},{self.image_id["imageCreatedTime"]},{self.image_id["size"]}, {self.total_fixes}') 
+       print(f'{self.cluster},{self.image_id["repo"]},{self.image_id["tag"]},{self.critical_count},{self.high_count},{self.medium_count},{self.low_count},{self.info_count},{self.active_count},{self.image_id["imageId"]},{self.image_id["imageCreatedTime"]},{self.image_id["size"]}, {self.total_fixes}') 
 
 
 def main(args):
@@ -63,12 +66,13 @@ def main(args):
                     "expression":"eq",
                     "value":"838515539440"
                 }
-            ],
-            "returns": ["mid"]
+            ]
         })
 
     for i in machines:
         for c in i['data']:
+            if 'aws:eks:cluster-name' in c['machineTags']:
+                MID_CLUSTER_MAP[c['mid']] = c['machineTags']['aws:eks:cluster-name']
             distinct_mids.add(c['mid'])
 
     all_active_images = client.entities.images.search(json={
@@ -84,7 +88,7 @@ def main(args):
                 }
             ],
             "returns":[
-                    "imageCreatedTime","imageId","repo","size","tag"
+                    "imageCreatedTime","imageId","repo","size","tag","mid"
                 ]
         })
 
@@ -94,6 +98,12 @@ def main(args):
 
     for imageId in distinct_imageIds:
         imageId = json.loads(imageId)
+
+        active_count = 0
+        for r in all_active_images:
+            if r['imageId'] == imageId['imageId']:
+                active_count += 1
+
         all_container_vulns = client.vulnerabilities.containers.search(json={
                 "timeFilter": {
                     "startTime": start_time,
@@ -121,10 +131,10 @@ def main(args):
             for c in i['data']:
                 distinct_vulns.add(json.dumps(c))
 
-        list_csv_rows.append(OutputRecord(imageId,distinct_vulns,0))
+        list_csv_rows.append(OutputRecord(imageId,distinct_vulns,active_count))
 
     # Print CSV Headers
-    print('Repository,Image Tags,Critical,High,Medium,Low,Info,Active Count,ImageId,Image Created Time,Image Size,Number Fixes')
+    print('Cluster,Repository,Image Tags,Critical,High,Medium,Low,Info,Active Count,ImageId,Image Created Time,Image Size,Number Fixes')
     for r in list_csv_rows:
         r.printCsvRow()
 
