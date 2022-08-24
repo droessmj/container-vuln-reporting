@@ -64,7 +64,7 @@ def main(args):
                 {
                     "field":"machineTags.Account",
                     "expression":"eq",
-                    "value":"838515539440"
+                    "value":args.account
                 }
             ]
         })
@@ -147,6 +147,11 @@ if __name__ == '__main__':
         '-p', '--profile',
         default='default',
         help='The Lacework CLI profile to use'
+    )
+    parser.add_argument(
+        '-a', '--account',
+        default='default',
+        help='The account to target for machines running the images of interest'
     )
 
     args = parser.parse_args()
