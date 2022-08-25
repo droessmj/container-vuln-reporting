@@ -7,6 +7,7 @@ import json
 
 MAX_RESULT_SET = 500_000
 MID_CLUSTER_MAP = {}
+IMAGEID_VULN_MAP = {}
 
 class OutputRecord():
     def __init__(self, image_id, vuln_list, active_count):
@@ -53,6 +54,7 @@ def main(args):
     client = LaceworkClient(profile=args.profile)
 
     distinct_mids = set()
+    distinct_imageId_objs = set()
     distinct_imageIds = set()
 
     machines = client.entities.machines.search(json={
@@ -94,9 +96,42 @@ def main(args):
 
     for i in all_active_images:
         for c in i['data']:
-            distinct_imageIds.add(json.dumps(c))
+            distinct_imageId_objs.add(json.dumps(c))
+            distinct_imageIds.add(c["imageId"])
 
-    for imageId in distinct_imageIds:
+
+
+    all_container_vulns = client.vulnerabilities.containers.search(json={
+            "timeFilter": {
+                "startTime": start_time,
+                "endTime": end_time
+            },
+            "filters":[
+                {
+                    "field":"imageId",
+                    "expression":"in",
+                    "value":list(distinct_imageIds)
+                },
+                {
+                    "field":"status",
+                    "expression":"ne",
+                    "value": "GOOD"
+                }
+            ],
+            "returns":[
+                "vulnId","status","severity"
+            ]
+        })
+    
+    
+    for r in all_container_vulns:
+        for v in r['data']:
+            if v['imageId'] in IMAGEID_VULN_MAP:
+                IMAGEID_VULN_MAP[v['imageId']].append(v)
+            else:
+                IMAGEID_VULN_MAP[v['imageId']] = list(v)
+
+    for imageId in distinct_imageId_objs:
         imageId = json.loads(imageId)
 
         active_count = 0
@@ -104,27 +139,6 @@ def main(args):
             if r['imageId'] == imageId['imageId']:
                 active_count += 1
 
-        all_container_vulns = client.vulnerabilities.containers.search(json={
-                "timeFilter": {
-                    "startTime": start_time,
-                    "endTime": end_time
-                },
-                "filters":[
-                    {
-                        "field":"imageId",
-                        "expression":"eq",
-                        "value":imageId['imageId']
-                    },
-                    {
-                        "field":"status",
-                        "expression":"ne",
-                        "value": "GOOD"
-                    }
-                ],
-                "returns":[
-                    "vulnId","status","severity"
-                ]
-            })
 
         distinct_vulns = set()
         for i in all_container_vulns:
