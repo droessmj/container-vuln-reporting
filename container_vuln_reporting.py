@@ -39,6 +39,16 @@ class OutputRecord():
     def printCsvRow(self):
        print(f'{self.cluster},{self.image_id["repo"]},{self.image_id["tag"]},{self.critical_count},{self.high_count},{self.medium_count},{self.low_count},{self.info_count},{self.active_count},{self.image_id["imageId"]},{self.image_id["imageCreatedTime"]},{self.image_id["size"]}, {self.total_fixes}') 
 
+    def __eq__(self,other):
+        return (self.image_id == other.image_id
+                and self.vuln_list == other.vuln_list
+                and self.active_count == other.active_count
+                and self.cluster == other.cluster)
+
+    def __hash__(self):
+        hash_val = hash((self.image_id['imageId'], self.cluster, self.total_fixes, self.image_id['tag']))
+        print(hash_val)
+        return hash_val
 
 def main(args):
     list_csv_rows = list()
@@ -136,11 +146,16 @@ def main(args):
                 active_count += 1
         
         lookup_results = IMAGEID_VULN_MAP[imageId['imageId']] if imageId['imageId'] in IMAGEID_VULN_MAP else list()
+        #dedupe vuln results per image
+        lookup_results = [dict(t) for t in {tuple(d.items()) for d in lookup_results}]
         list_csv_rows.append(OutputRecord(imageId,lookup_results,active_count))
+
+    # dedupe cluster + image results
+    deduped_csv_rows = set(list_csv_rows)
 
     # Print CSV Headers
     print('Cluster,Repository,Image Tags,Critical,High,Medium,Low,Info,Active Count,ImageId,Image Created Time,Image Size,Number Fixes')
-    for r in list_csv_rows:
+    for r in deduped_csv_rows:
         r.printCsvRow()
 
 
