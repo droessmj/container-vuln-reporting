@@ -46,12 +46,10 @@ class OutputRecord():
                 and self.cluster == other.cluster)
 
     def __hash__(self):
-        hash_val = hash((self.image_id['imageId'], self.cluster, self.total_fixes, self.image_id['tag']))
-        print(hash_val)
-        return hash_val
+        return hash((self.image_id['imageId'], self.cluster, self.total_fixes, self.image_id['tag']))
 
 def main(args):
-    list_csv_rows = list()
+    set_csv_rows = set()
 
     # lookback time can be configured for any value between 1 hour and 7 days
     current_time = datetime.now(timezone.utc)
@@ -148,14 +146,11 @@ def main(args):
         lookup_results = IMAGEID_VULN_MAP[imageId['imageId']] if imageId['imageId'] in IMAGEID_VULN_MAP else list()
         #dedupe vuln results per image
         lookup_results = [dict(t) for t in {tuple(d.items()) for d in lookup_results}]
-        list_csv_rows.append(OutputRecord(imageId,lookup_results,active_count))
-
-    # dedupe cluster + image results
-    deduped_csv_rows = set(list_csv_rows)
+        set_csv_rows.add(OutputRecord(imageId,lookup_results,active_count))
 
     # Print CSV Headers
     print('Cluster,Repository,Image Tags,Critical,High,Medium,Low,Info,Active Count,ImageId,Image Created Time,Image Size,Number Fixes')
-    for r in deduped_csv_rows:
+    for r in set_csv_rows:
         r.printCsvRow()
 
 
