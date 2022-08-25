@@ -21,7 +21,6 @@ class OutputRecord():
         self.info_count = 0
 
         for v in vuln_list:
-            v = json.loads(v)
             if v['severity'].lower() == 'critical':
                 self.critical_count += 1
             elif v['severity'].lower() == 'high':
@@ -99,7 +98,6 @@ def main(args):
             distinct_imageId_objs.add(json.dumps(c))
             distinct_imageIds.add(c["imageId"])
 
-
     all_container_vulns = client.vulnerabilities.containers.search(json={
             "timeFilter": {
                 "startTime": start_time,
@@ -122,16 +120,12 @@ def main(args):
             ]
         })
     
-    print(distinct_imageIds)
-    
     for r in all_container_vulns:
         for v in r['data']:
-            print(v)
-            exit()
-            if v['image_info.id'] in IMAGEID_VULN_MAP:
+            if v['imageId'] in IMAGEID_VULN_MAP:
                 IMAGEID_VULN_MAP[v['imageId']].append(v)
             else:
-                IMAGEID_VULN_MAP[v['imageId']] = list(v)
+                IMAGEID_VULN_MAP[v['imageId']] = [v]
 
     for imageId in distinct_imageId_objs:
         imageId = json.loads(imageId)
@@ -140,14 +134,9 @@ def main(args):
         for r in all_active_images:
             if r['imageId'] == imageId['imageId']:
                 active_count += 1
-
-
-        distinct_vulns = set()
-        for i in all_container_vulns:
-            for c in i['data']:
-                distinct_vulns.add(json.dumps(c))
-
-        list_csv_rows.append(OutputRecord(imageId,distinct_vulns,active_count))
+        
+        lookup_results = IMAGEID_VULN_MAP[imageId['imageId']] if imageId['imageId'] in IMAGEID_VULN_MAP else list()
+        list_csv_rows.append(OutputRecord(imageId,lookup_results,active_count))
 
     # Print CSV Headers
     print('Cluster,Repository,Image Tags,Critical,High,Medium,Low,Info,Active Count,ImageId,Image Created Time,Image Size,Number Fixes')
