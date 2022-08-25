@@ -100,7 +100,6 @@ def main(args):
             distinct_imageIds.add(c["imageId"])
 
 
-
     all_container_vulns = client.vulnerabilities.containers.search(json={
             "timeFilter": {
                 "startTime": start_time,
@@ -110,7 +109,7 @@ def main(args):
                 {
                     "field":"imageId",
                     "expression":"in",
-                    "value":list(distinct_imageIds)
+                    "values":list(distinct_imageIds)
                 },
                 {
                     "field":"status",
@@ -118,15 +117,18 @@ def main(args):
                     "value": "GOOD"
                 }
             ],
-            "returns":[
-                "vulnId","status","severity"
+             "returns":[
+                "vulnId","status","severity","imageId"
             ]
         })
     
+    print(distinct_imageIds)
     
     for r in all_container_vulns:
         for v in r['data']:
-            if v['imageId'] in IMAGEID_VULN_MAP:
+            print(v)
+            exit()
+            if v['image_info.id'] in IMAGEID_VULN_MAP:
                 IMAGEID_VULN_MAP[v['imageId']].append(v)
             else:
                 IMAGEID_VULN_MAP[v['imageId']] = list(v)
