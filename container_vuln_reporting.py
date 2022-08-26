@@ -40,13 +40,14 @@ class OutputRecord():
        print(f'{self.cluster},{self.image_id["repo"]},{self.image_id["tag"]},{self.critical_count},{self.high_count},{self.medium_count},{self.low_count},{self.info_count},{self.active_count},{self.image_id["imageId"]},{self.image_id["imageCreatedTime"]},{self.image_id["size"]}, {self.total_fixes}') 
 
     def __eq__(self,other):
-        return (self.image_id == other.image_id
+        return (self.image_id['imageId'] == other.image_id['imageId']
                 and self.vuln_list == other.vuln_list
                 and self.active_count == other.active_count
                 and self.cluster == other.cluster)
 
     def __hash__(self):
-        return hash((self.image_id['imageId'], self.cluster, self.total_fixes, self.image_id['tag']))
+        t = (self.image_id['imageId'], self.cluster, self.total_fixes, self.image_id['tag'])
+        return hash(t)
 
 def main(args):
     set_csv_rows = set()
@@ -147,6 +148,7 @@ def main(args):
         #dedupe vuln results per image
         lookup_results = [dict(t) for t in {tuple(d.items()) for d in lookup_results}]
         set_csv_rows.add(OutputRecord(imageId,lookup_results,active_count))
+    
 
     # Print CSV Headers
     print('Cluster,Repository,Image Tags,Critical,High,Medium,Low,Info,Active Count,ImageId,Image Created Time,Image Size,Number Fixes')
