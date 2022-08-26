@@ -64,6 +64,7 @@ def main(args):
     distinct_mids = set()
     distinct_imageId_objs = set()
     distinct_imageIds = set()
+    active_images = {}
 
     machines = client.entities.machines.search(json={
             "timeFilter": {
@@ -106,6 +107,11 @@ def main(args):
         for c in i['data']:
             distinct_imageId_objs.add(json.dumps(c))
             distinct_imageIds.add(c["imageId"])
+            if c['imageId'] in active_images:
+                active_images[c['imageId']] += 1
+            else:
+                active_images[c['imageId']] = 1
+
 
     all_container_vulns = client.vulnerabilities.containers.search(json={
             "timeFilter": {
@@ -136,18 +142,15 @@ def main(args):
             else:
                 IMAGEID_VULN_MAP[v['imageId']] = [v]
 
-    for imageId in distinct_imageId_objs:
-        imageId = json.loads(imageId)
+    for image_info in distinct_imageId_objs:
+        image_info = json.loads(image_info)
 
-        active_count = 0
-        for r in all_active_images:
-            if r['imageId'] == imageId['imageId']:
-                active_count += 1
+        active_count = active_images[image_info['imageId']]
         
-        lookup_results = IMAGEID_VULN_MAP[imageId['imageId']] if imageId['imageId'] in IMAGEID_VULN_MAP else list()
+        lookup_results = IMAGEID_VULN_MAP[image_info['imageId']] if image_info['imageId'] in IMAGEID_VULN_MAP else list()
         #dedupe vuln results per image
         lookup_results = [dict(t) for t in {tuple(d.items()) for d in lookup_results}]
-        set_csv_rows.add(OutputRecord(imageId,lookup_results,active_count))
+        set_csv_rows.add(OutputRecord(image_info,lookup_results,active_count))
     
 
     # Print CSV Headers
