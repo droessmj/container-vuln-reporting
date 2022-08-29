@@ -54,7 +54,7 @@ def main(args):
 
     # lookback time can be configured for any value between 1 hour and 7 days
     current_time = datetime.now(timezone.utc)
-    start_time = current_time - timedelta(days=7)
+    start_time = current_time - timedelta(days=int(args.days))
     start_time = start_time.strftime("%Y-%m-%dT%H:%M:%SZ")
     end_time = current_time.strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -173,6 +173,11 @@ if __name__ == '__main__':
         '-a', '--account',
         default='default',
         help='The account to target for machines running the images of interest'
+    )
+    parser.add_argument(
+        '-d', '--days',
+        default=1,
+        help='Number of days for lookback'
     )
 
     args = parser.parse_args()
