@@ -126,8 +126,8 @@ def main(args):
                 },
                 {
                     "field":"status",
-                    "expression":"ne",
-                    "value": "GOOD"
+                    "expression":"not_in",
+                    "values": ["EXCEPTION","GOOD"]
                 }
             ],
              "returns":[
@@ -135,6 +135,7 @@ def main(args):
             ]
         })
     
+
     for r in all_container_vulns:
         for v in r['data']:
             if v['imageId'] in IMAGEID_VULN_MAP:
