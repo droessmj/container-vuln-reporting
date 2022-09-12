@@ -8,6 +8,7 @@ import json
 MAX_RESULT_SET = 500_000
 MID_CLUSTER_MAP = {}
 IMAGEID_VULN_MAP = {}
+DIGEST_IMAGEID_MAP = {}
 
 class OutputRecord():
     def __init__(self, image_id, vuln_list, active_count):
@@ -35,9 +36,10 @@ class OutputRecord():
         self.total_fixes = self.critical_count + self.high_count + self.medium_count + self.low_count + self.info_count
 
         self.cluster = MID_CLUSTER_MAP[image_id['mid']]
+        self.digest = image_id['digest']
 
     def printCsvRow(self):
-       print(f'{self.cluster},{self.image_id["repo"]},{self.image_id["tag"]},{self.critical_count},{self.high_count},{self.medium_count},{self.low_count},{self.info_count},{self.active_count},{self.image_id["imageId"]},{self.image_id["imageCreatedTime"]},{self.image_id["size"]}, {self.total_fixes}') 
+       print(f'{self.cluster},{self.image_id["repo"]},{self.image_id["tag"]},{self.critical_count},{self.high_count},{self.medium_count},{self.low_count},{self.info_count},{self.active_count},{self.image_id["imageId"]},{self.image_id["imageCreatedTime"]},{self.image_id["size"]}, {self.total_fixes}, {self.digest}') 
 
     def __eq__(self,other):
         return (self.image_id['imageId'] == other.image_id['imageId']
@@ -130,18 +132,33 @@ def main(args):
                     "values": ["EXCEPTION","GOOD"]
                 }
             ],
-             "returns":[
-                "vulnId","status","severity","imageId"
-            ]
+            "returns": ["vulnId","status","severity","imageId","evalCtx"]
         })
     
 
     for r in all_container_vulns:
         for v in r['data']:
+
+            # digest marking
+            digest = ""
+            if v['imageId'] in DIGEST_IMAGEID_MAP:
+                digest = DIGEST_IMAGEID_MAP[v['imageId']]
+
+            if 'evalCtx' in v:
+                if 'image_info' in v['evalCtx'] and 'digest' in v['evalCtx']['image_info']:
+                    if digest != "" and digest != v['evalCtx']['image_info']['digest']:
+                        raise Exception(f'Detected digest mismatch for imageId {v["imageId"]}')
+                    else:
+                        digest = v['evalCtx']['image_info']['digest']
+                v.pop('evalCtx')
+
+                DIGEST_IMAGEID_MAP[v['imageId']] = digest
+
             if v['imageId'] in IMAGEID_VULN_MAP:
                 IMAGEID_VULN_MAP[v['imageId']].append(v)
             else:
                 IMAGEID_VULN_MAP[v['imageId']] = [v]
+
 
     for image_info in distinct_imageId_objs:
         image_info = json.loads(image_info)
@@ -149,13 +166,21 @@ def main(args):
         active_count = active_images[image_info['imageId']]
         
         lookup_results = IMAGEID_VULN_MAP[image_info['imageId']] if image_info['imageId'] in IMAGEID_VULN_MAP else list()
+
+        # digest lookup...
+        if image_info['imageId'] in DIGEST_IMAGEID_MAP:
+            image_info['digest'] = DIGEST_IMAGEID_MAP[image_info['imageId']]
+        else:
+            image_info['digest'] = ''
+
         #dedupe vuln results per image
         lookup_results = [dict(t) for t in {tuple(d.items()) for d in lookup_results}]
+
         set_csv_rows.add(OutputRecord(image_info,lookup_results,active_count))
     
 
     # Print CSV Headers
-    print('Cluster,Repository,Image Tags,Critical,High,Medium,Low,Info,Active Count,ImageId,Image Created Time,Image Size,Number Fixes')
+    print('Cluster,Repository,Image Tags,Critical,High,Medium,Low,Info,Active Count,ImageId,Image Created Time,Image Size,Number Fixes,Digest')
     for r in set_csv_rows:
         r.printCsvRow()
 
